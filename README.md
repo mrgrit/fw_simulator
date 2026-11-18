@@ -29,4 +29,23 @@ node tests/run.mjs            # 테스트
 - [x] 단계 3: 섀도잉·중복·기본 거부·syslog 표준 포트 점검
 - [x] 단계 4: 규칙 추가·수정·삭제·이동, 변경 이력 자동 기록, 스냅샷 저장·복원
 - [x] 단계 5: UI (정책표 편집, 패킷 시험, 정책 점검, 이력, 저장·내보내기)
-- [ ] 단계 6: 정리(배포, 마무리)
+- [x] 단계 6: 정리(함정 인수 테스트, 배포 안내)
+
+## 코드 구조
+```
+src/core/   판정·점검·이력 (DOM 비의존 순수 모듈)
+  topology  구역·호스트·그룹, IPv4/CIDR      parse     주소·서비스 파싱과 검증
+  matcher   first-match 판정                 analyzer  covers, 섀도잉·중복·기본 거부·syslog
+  policy    규칙 변경 + 이력 + 저장·복원     history   변경 이력 항목
+src/ui/     화면 (format·storage 는 DOM 비의존, main 은 document 주입형)
+tests/      node tests/run.mjs — 함정 3종(traps.test.mjs) 포함
+```
+
+## 배포 (GitHub Pages)
+정적 파일뿐이라 빌드가 필요 없다. 저장소 Settings → Pages → Source 를 `main` 브랜치 `/ (root)` 로 지정하면
+`https://<사용자>.github.io/fw_simulator/` 로 열린다. (`.nojekyll` 포함)
+
+## 한계
+- 규칙은 IPv4, TCP/UDP 만 다룬다(ICMP, IPv6, 상태 추적·NAT 은 범위 밖).
+- 섀도잉·중복은 규칙 하나가 다른 규칙 하나를 완전히 덮는 경우만 찾는다(여러 규칙이 합쳐서 덮는 경우는 미검출).
+- 화면 모양은 자동 테스트로 확인되지 않는다(로직·이벤트 흐름만 가짜 DOM 으로 검증).
