@@ -1,12 +1,72 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>패킷 길찾기</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>패킷 길찾기 — 방화벽 정책 시뮬레이터</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #fff; --fg: #1d2330; --muted: #667085; --line: #d9dde5;
+    --allow: #12803c; --allow-bg: #e3f5ea; --deny: #b42318; --deny-bg: #fde8e6;
+    --warn: #9a6700; --warn-bg: #fff4d6; --accent: #2457d6; --src: #2457d6; --dst: #d9730d;
+    --hit: #e3f5ea; --miss: #f1f2f5; --focus: #fff4d6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --card: #1a1f2a; --fg: #e8ebf2; --muted: #98a2b3; --line: #2e3646;
+      --allow: #4cc38a; --allow-bg: #12301f; --deny: #f97066; --deny-bg: #3b1714;
+      --warn: #fdb022; --warn-bg: #3a2c0a; --accent: #7aa2ff; --src: #7aa2ff; --dst: #f79e4b;
+      --hit: #12301f; --miss: #1f2531; --focus: #3a2c0a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, "Noto Sans KR", sans-serif; }
+  #app { max-width: 1100px; margin: 0 auto; padding: 16px; }
+  h1 { margin: 0 0 4px; font-size: 24px; } h2 { font-size: 18px; margin: 0 0 8px; } h3 { margin: 0 0 8px; font-size: 15px; }
+  section { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px; margin: 14px 0; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .toolbar, .row, .scenarios { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 8px 0; }
+  button, input, select { font: inherit; color: inherit; background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; }
+  button { cursor: pointer; } button:hover { border-color: var(--accent); }
+  button[type=submit], .tabs .active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip { font-size: 13px; padding: 3px 9px; border-radius: 999px; }
+  .tabs { display: flex; gap: 6px; margin-bottom: 10px; }
+  .msg { padding: 8px 12px; border-radius: 8px; margin: 8px 0; }
+  .msg.ok { background: var(--allow-bg); color: var(--allow); } .msg.err { background: var(--deny-bg); color: var(--deny); }
+  ul.err { color: var(--deny); margin: 6px 0; padding-left: 20px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 13px; color: var(--muted); white-space: nowrap; }
+  tr.hit td { background: var(--hit); } tr.miss td { background: var(--miss); color: var(--muted); } tr.focus td { background: var(--focus); }
+  .actions { white-space: nowrap; } .actions button { padding: 2px 7px; margin-right: 3px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; margin-right: 4px; }
+  .badge.allow { background: var(--allow-bg); color: var(--allow); } .badge.deny { background: var(--deny-bg); color: var(--deny); }
+  .badge.warn { background: var(--warn-bg); color: var(--warn); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 12px; }
+  .grid label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; color: var(--muted); }
+  .grid input, .grid select { width: 100%; color: var(--fg); }
+  .rule-form { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+  .topo { display: flex; flex-direction: column; gap: 8px; }
+  .zone-row { display: grid; gap: 10px; } .zone-row.three { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  .zone { border: 2px solid var(--line); border-radius: 8px; padding: 8px 12px; }
+  .zone ul { margin: 4px 0 0; padding-left: 18px; font-size: 13px; }
+  .zone.src { border-color: var(--src); } .zone.dst { border-color: var(--dst); } .zone.src.dst { border-style: dashed; }
+  .fw { text-align: center; background: var(--miss); border-radius: 6px; padding: 5px; font-size: 13px; color: var(--muted); }
+  .pathline { padding: 6px 10px; border-radius: 6px; font-weight: 600; }
+  .pathline.allow, .verdict.allow { background: var(--allow-bg); color: var(--allow); }
+  .pathline.deny, .verdict.deny { background: var(--deny-bg); color: var(--deny); }
+  .verdict { font-size: 18px; font-weight: 700; padding: 8px 12px; border-radius: 8px; margin: 10px 0; }
+  .trace { font-family: ui-monospace, monospace; font-size: 13px; padding-left: 0; list-style: none; }
+  .findings li { cursor: pointer; padding: 6px 0; border-bottom: 1px solid var(--line); list-style: none; }
+  .findings { padding-left: 0; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+  [hidden] { display: none !important; }
+</style>
 </head>
 <body>
-  <h1>패킷 길찾기 — 방화벽 정책 시뮬레이터</h1>
-  <p>구현 준비 중입니다. (PLAN.md 단계 0 완료)</p>
+<div id="app"></div>
+<noscript>이 앱은 JavaScript 가 필요합니다.</noscript>
+<script type="module" src="src/ui/main.js"></script>
 </body>
 </html>
