@@ -1,0 +1,11 @@
+{
+  "name": "fw_simulator",
+  "version": "0.1.0",
+  "description": "패킷 길찾기 — 방화벽 정책 시뮬레이터 (브라우저 단독 앱)",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node tests/run.mjs",
+    "serve": "python3 -m http.server 8080"
+  }
+}
